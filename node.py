@@ -13,7 +13,7 @@ def is_local_port_in_use(port: int) -> bool:
             return False
 
 
-def get_available_port() -> int | None:
+def get_available_port() -> int:
     """
     Returns the first available local port available.
     By local, we mean on the primary network interface.
@@ -21,6 +21,8 @@ def get_available_port() -> int | None:
     for p in range(1025, 65536):
         if not is_local_port_in_use(p):
             return p
+    else:
+        raise Exception("Could not find any available port.")
 
 
 def get_primary_ip_address() -> str:
@@ -67,11 +69,11 @@ class Node:
         # Choose a random port to open the server on.
         self.address = get_primary_ip_address()
         self.port = get_available_port()
-        self.open_server(self.port)
+        self.open_server()
         self._stop_event = th.Event()
         self._listen_thread = th.Thread(target=self._listen)
 
-    def open_server(self, port: int):
+    def open_server(self):
         self._listen_thread.start()
 
     def _receive_all(
