@@ -1,39 +1,9 @@
 import socket
 import threading as th
 import pickle
+import sys
 
 from hashlib import sha256
-
-
-def is_local_port_in_use(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            return s.connect_ex(("localhost", port)) == 0
-        except socket.gaierror:
-            return False
-
-
-def get_available_port() -> int:
-    """
-    Returns the first available local port available.
-    By local, we mean on the primary network interface.
-    """
-    for p in range(1025, 65536):
-        if not is_local_port_in_use(p):
-            return p
-    else:
-        raise Exception("Could not find any available port.")
-
-
-def get_primary_ip_address() -> str:
-    """
-    Gets the IP address of the interface used to connect to the internet.
-    """
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        # doesn't have to be reachable
-        s.connect(("10.255.255.255", 1))
-        return s.getsockname()[0]
-
 
 def hash_object(obj: any) -> str:
     """
@@ -59,57 +29,76 @@ def compute_pow(block: dict, difficulty: int = 5) -> dict:
 class Node:
     """
     Possède à la fois le code du client et du serveur (fait les deux).
-
-
     """
 
     known_peers: list[str] = []
 
     def __init__(self):
         # Choose a random port to open the server on.
-        self.address = get_primary_ip_address()
-        self.port = get_available_port()
-        self.open_server()
-        self._stop_event = th.Event()
-        self._listen_thread = th.Thread(target=self._listen)
+        self.address = "localhost"
+        self.port = int(sys.argv[1])
 
-    def open_server(self):
+        self.list_adresses = []
+        self.list_connections = set()
+
+        print("On est sur l'adresse et le port suivant", self.address, self.port)
+        self._listen_thread = th.Thread(target=self._listen)
+        if len(sys.argv)>2:
+            self._connect(int(sys.argv[2]))
+        else:
+            print("no connection")
+        self.run_thread()
+        
+        self._stop_event = th.Event()
+        
+
+
+    def run_thread(self):
         self._listen_thread.start()
 
-    def _receive_all(
-            self, sock: socket.socket, address_check: str | None = None
-    ) -> tuple[bytes, tuple[str, int]]:
-        """
-        Receives all parts of a network-sent message.
-        Takes a socket object and returns a tuple with
-        (1) the complete message as bytes
-        (2) a tuple with (1) the address and (2) distant port of the sender.
-        """
-        data = bytes()
-        while True:
-            part, addr = sock.recvfrom(4096)
-            if address_check:
-                if addr == address_check:
-                    data += part
-            else:
-                data += part
-            if len(part) < 4096:
-                # Either 0 or end of data
-                break
-        return data, addr
+
+    def _send_msg(self, socket, msg):
+        socket.send(bytes(msg,"utf-8"))
+
+
+    def _receive_msg(self, socket):
+        msg = socket.recv(4096)
+        return msg.decode("utf-8")
+
 
     def _listen(self):
-        with socket.socket() as server_socket:
-            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_socket.bind((self.address, self.port))
             server_socket.listen()
             while not self._stop_event.is_set():
                 connection, address = server_socket.accept()
-                raw_request, _ = self._receive_all(connection, address)
-                try:
-                    request = Request.from_bytes(raw_request)
-                except pydantic.ValidationError:
-                    pass
-                else:
-                    handle_queue.put((request, address))
+                print(f"connection from{address} has been established")
+                self.list_adresses.append(address)
+                self.list_connections.add(connection)
+                #send a message
+                self._send_msg(connection, f"You're connected to {self.address, self.port}")
+                
+                #receive a massage
+                print(self._receive_msg(connection))
+
+            for connection in self.list_connections:
                 connection.close()
+
+            print("connection is closed")
+
+
+    def _connect(self, port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+            address = "localhost"
+            client_socket.connect((address, port))
+
+            self.list_adresses.append((address, port))
+            self.list_connections.add(client_socket)
+            #receive a message
+            print(self._receive_msg(client_socket))
+            #send a message
+            self._send_msg(client_socket,f"thank you for accepting the connection from {self.address, self.port}!")
+        
+
+
+n = Node()
