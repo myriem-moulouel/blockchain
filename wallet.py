@@ -11,7 +11,7 @@ class Wallet():
 
 
     # Se connecter sur un noeud du port2
-    def _connect(self, port):
+    def _connect(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             address = "localhost"
             client_socket.connect((address, self.port2))
@@ -24,7 +24,11 @@ class Wallet():
             
 
     # envoyer une transaction
-    def push_utxo(self, Name2, montant):
+    def push_utxo(self):
+
+        Name2 = input("Put the name of the wallet to sand money")
+        montant = input("Put the amount")
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             address = "localhost"
             client_socket.connect((address, self.port2))
@@ -35,3 +39,8 @@ class Wallet():
     def get_sold(self):
         # Calculer les UTXO sur la blockchain
         #
+
+w = Wallet()
+w._connect()
+w.push_utxo()
+
