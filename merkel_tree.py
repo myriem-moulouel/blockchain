@@ -1,150 +1,153 @@
-import hashlib
+"""
+Implementation of the Merkle Tree.
 
-def sha256(string):
-    # Create a new SHA-256 hash object
-    return hashlib.sha256(string.encode()).hexdigest()
+Documentation:
+https://en.bitcoin.it/wiki/Protocol_documentation#Merkle_Trees
+"""
 
-def sha256_sum(hash1, hash2):
-    # Convert the input hashes to integers
-    int1 = int(hash1, 16)
-    int2 = int(hash2, 16)
-    # Add the integers together
-    int_sum = int1 + int2
-    # Convert the result back to a hash
-    hex_sum = hex(int_sum)[2:]
-    sha = hashlib.sha256()
-    sha.update(hex_sum.encode())
-    return sha.hexdigest()
+from __future__ import annotations
+
+from typing import Optional
+
+from blockchain.crypt import hash_object
 
 
-class Leaf():
-    def __init__(self, transaction):
-        #self.length = len(str(s))
-        self.hash = sha256(transaction) # a hashcode that refers to the transaction (sha256)
-        self.parent = None
-        self.transaction = transaction # a json file that contains all the informations about the transaction
-     
+def concat(h1: str, h2: str) -> str:
+    return hash_object(h1 + h2)
+
+
+class Leaf:
+    """A leaf of the tree is a transaction.
+
+    Attributes
+    ----------
+    hash : str
+        The hash of the transaction
+    parent : Optional[MerkleNode]
+        The parent of the leaf
+    transaction : str
+        A JSON document containing the information about the transaction
+    """
+
+    def __init__(self, transaction: dict):
+        self.hash: str = hash_object(transaction)
+        self.parent: Optional[MerkleNode] = None
+        self.transaction: dict = transaction
+
+    def __contains__(self, hexdigest: str) -> bool:
+        return hexdigest == self.hash
+
     def __str__(self):
-        return "("+str(self.transaction)+")"
+        return f"({self.transaction})"
 
-class Node():
-    def __init__(self) -> None:
-        self.left = None
-        self.right = None
-        self.hash = None
-        self.parent = None
 
-    
-    def _initialise(self, left, right):
-        left.parent = self
-        right.parent = self   
+class MerkleNode:
+
+    def __init__(self, left: Leaf | MerkleNode, right: Leaf | MerkleNode) -> None:
         self.left = left
         self.right = right
-        self.hash = sha256_sum(left.hash, right.hash)
-        
+        self.left.parent = self
+        self.right.parent = self
+        self.hash = concat(left.hash, right.hash)
+        self.parent = None
 
+    def __contains__(self, hexdigest: str) -> bool:
+        return hexdigest in self.left or hexdigest in self.right
 
     def __str__(self):
-        result = "|  "+self.left.__str__() + "[" + str(f"node") + "]" + self.right.__str__()+"  |"
-
-        return result
+        return f"|  {self.left!s} [node] {self.right!s}  |"
 
 
-class merkle_tree(Node):
-    def __init__(self, UTXO) -> None:
-        self.dict_hash_to_addr = {}
+class MerkleTree(MerkleNode):
+
+    """Root node of the Merkle tree.
+
+    Attributes
+    ----------
+    leaf_map : dict[str, Leaf]
+        A dictionary that maps the hash of transactions to their respective leaf.
+    """
+
+    def __init__(self, UTXO: list) -> None:
+        self.leaf_map = {}
         self.root_node = None
         self.__initialise(UTXO)
-    
+        super().__init__()
 
     def __initialise(self, UTXO: list):
-        
-        liste_leafs = [Leaf( UTXO[i]) for i in range(len(UTXO))] 
-        for leaf in liste_leafs:
-            # store the address of the leaf, to be able to jump into it, and then make the ascent until we reach the root
-            self.dict_hash_to_addr[leaf.hash] = leaf
+        transactions = [Leaf(transaction_info) for transaction_info in UTXO]
+        self.leaf_map = {leaf.hash: leaf for leaf in transactions}
 
-        liste_nodes = liste_leafs
+        nodes = transactions
         liste_a_traiter = []
 
-        while (liste_a_traiter != None):
+        while liste_a_traiter is None:
             liste_a_traiter = []
 
-            while (len(liste_nodes) > 1):
-                left = liste_nodes.pop(0) # pop the first elem
-                right = liste_nodes.pop(0) # pop the second elem
+            while len(nodes) > 1:
+                left = nodes.pop(0)  # pop the first elem
+                right = nodes.pop(0)  # pop the second elem
                 # Create the node that represent the concatenation of the 2 nodes, and add it to the list 
-                racine = Node()
-                racine._initialise(left, right)
+                racine = MerkleNode(left, right)
                 liste_a_traiter.append(racine)
-                
-            if(len(liste_nodes) == 1):
-                last_elem = liste_nodes.pop(0)
+
+            if len(nodes) == 1:
+                last_elem = nodes.pop(0)
                 liste_a_traiter.append(last_elem)
             
-            liste_nodes = liste_a_traiter
+            nodes = liste_a_traiter
 
-            if len(liste_nodes) == 1:
-                self.root_node = liste_nodes[0]
+            if len(nodes) == 1:
+                self.root_node = nodes[0]
                 liste_a_traiter = None
-            
-    
-    def transaction_in_merkle(self, hash_transaction):
-        if hash_transaction not in self.dict_hash_to_addr.keys():
+
+    def transaction_in_merkle(self, hexdigest: str) -> list[str]:
+        if hexdigest not in self.leaf_map.keys():
             return []
 
-        leaf_transaction = self.dict_hash_to_addr[hash_transaction]
-        iterator = leaf_transaction
+        transaction = self.leaf_map[hexdigest]
 
         hash_list = []
 
-        while iterator.parent != None:
-            parent = iterator.parent
-            if parent.left == iterator:
+        while transaction.parent is not None:
+            parent = transaction.parent
+            if parent.left == transaction:
                 hash_list.append(parent.right.hash)
             else:
                 hash_list.append(parent.left.hash)
-            
-            iterator = parent
+
+            transaction = parent
 
         return hash_list
+
+
+# Simulation of the behaviour of a person that demand if his transaction is included in the block
+
+
+def is_in_node(tree: MerkleTree, transaction):
     
-
-    def get_hash_block(self):
-        return self.root_node.hash
-
-    def __str__(self):
-        return self.root_node.__str__()
-
-"""
-Simulation of the behaviour of a person that demand if his transaction is included in the block
-
-"""
-def is_in_node(tree: merkle_tree, transaction):
-    
-    hash_t = sha256(transaction)
+    hash_t = hash_object(transaction)
 
     hash_list = tree.transaction_in_merkle(hash_t)
 
     res = hash_t
 
-    for i in range(len(hash_list)) :
-        res = sha256_sum(res, hash_list[i])
+    for h in hash_list:
+        res = concat(res, h)
 
     print("\nhash of the transaction =", hash_t)
-    print("\nres of computation = ",res)
-    print("\nblock hashcode header = ", tree.get_hash_block())
+    print("\nres of computation = ", res)
+    print("\nblock hashcode header = ", tree.hash)
 
-    if res == tree.get_hash_block():
+    if res == tree.hash:
         print("transaction is in the block")
     else:
         print("transaction is not in the block")
 
 
-# ================== MAIN CODE ============
+if __name__ == "__main__":
+    liste_transaction = ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"]
+    tree = MerkleTree(liste_transaction)
 
-liste_transaction = ["t1", "t2", "t3", "t4", "t5", "t6", "t7","t8"]
-tree = merkle_tree(liste_transaction)
-
-transaction = "t8"
-is_in_node(tree, transaction)
+    transaction = "t8"
+    is_in_node(tree, transaction)
