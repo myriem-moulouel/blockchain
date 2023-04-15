@@ -59,7 +59,7 @@ class Node:
         self._stop_event = th.Event()
 
         # creer une classe block
-        self.transactions = []
+        self.transactions = "file"+str(self.port)+".txt"
         
 
     def run_thread(self):
@@ -130,8 +130,10 @@ class Node:
                     #receive a massage
                     msg_from_wallet = self._receive_msg(connection)
                     print(msg_from_wallet)
-                    self.transactions.append(msg_from_connect)
-                    
+                    f = open(self.transactions, 'a')
+                    f.write("\n"+msg_from_wallet)
+                    f.close()
+
                     b = th.Thread(target=self.broadcast_messages, args=(msg_from_wallet,))
                     b.start()
                     connection.close()
@@ -146,7 +148,9 @@ class Node:
                     msg_from_connect = self._receive_msg(connection)
                     print(msg_from_connect)
                     
-                    self.transactions.append(msg_from_connect)
+                    f = open(self.transactions, 'a')
+                    f.write("\n"+msg_from_connect)
+                    f.close()
 
                     connection.close()
 
