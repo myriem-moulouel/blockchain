@@ -1,9 +1,15 @@
 import socket
 import threading as th
+import pickle
 import sys
 
+from hashlib import sha256
 
-from blockchain.crypt import hash_object
+def hash_object(obj: any) -> str:
+    """
+    Returns a hexdigest of the value passed.
+    """
+    return sha256(pickle.dumps(obj)).hexdigest()
 
 
 def compute_pow(block: dict, difficulty: int = 5) -> dict:
@@ -19,6 +25,14 @@ def compute_pow(block: dict, difficulty: int = 5) -> dict:
             return block
         n += 1
 
+def represents_int(s):
+    try: 
+        int(s)
+    except ValueError:
+        return False
+    else:
+        return True
+
 
 class Node:
     """
@@ -31,11 +45,11 @@ class Node:
         self.port = int(sys.argv[1])
 
         self.list_connections = []
-        self.connx = []
+        self.len_connections = 0
 
         print("On est sur l'adresse et le port suivant", self.address, self.port)
         self._listen_thread = th.Thread(target=self._listen)
-        self._broadcast_thread = th.Thread(target=self.broadcast)
+
         if len(sys.argv)>2:
             self._connect(int(sys.argv[2]))
         else:
@@ -44,60 +58,187 @@ class Node:
         
         self._stop_event = th.Event()
 
+        # creer une classe block
+        self.blockchain = []
+        
+
     def run_thread(self):
         self._listen_thread.start()
-        self._broadcast_thread.start()
+
 
     def _send_msg(self, socket, msg):
         socket.send(bytes(msg,"utf-8"))
+
 
     def _receive_msg(self, socket):
         msg = socket.recv(4096)
         return msg.decode("utf-8")
 
+
     def _listen(self):
+        print("-----------------LISTEN")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_socket.bind((self.address, self.port))
             server_socket.listen()
             while not self._stop_event.is_set():
 
                 connection, address = server_socket.accept()
-                print(f"connection from{address} has been established")
-                
-                # Send a message
-                self._send_msg(connection, f"You're connected to {self.address, self.port}")
 
-                # Receive a massage
-                print(self._receive_msg(connection))
+                #receive a massage
+                msg_from_connect1 = self._receive_msg(connection)
+                if msg_from_connect1 == "CONNECT":
 
-                connection.close()
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Accepted")
+
+                    #receive a massage
+                    msg_from_connect = self._receive_msg(connection)
+                    
+                    print(msg_from_connect)
+                    port = msg_from_connect[69:74]
+                    if represents_int(port):
+                        self.list_connections.append(int(port))
+
+                    b = th.Thread(target=self.broadcast_connexions)
+                    b.start()
+                    connection.close()
+
+                elif msg_from_connect1 == "BROADCAST_CONNEXIONS":
+
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Accepted")
+
+                    #receive a massage
+                    msg_from_connect = self._receive_msg(connection)
+                    
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Here my list of connections { self.list_connections }")
+
+                    #receive a massage
+                    msg_from_connect2 = self._receive_msg(connection)
+                    print(msg_from_connect2)
+                    #msg_from_connect2 = self._receive_msg(connection)[40:-1]
+                    #print(msg_from_connect2.split(","))
+
+                    connection.close()
+
+                elif msg_from_connect1 == "RECEIVE_TRANSACTION":
+                    print("wallet")
+
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Accepted")
+
+                    #receive a massage
+                    msg_from_wallet = self._receive_msg(connection)
+                    print(msg_from_wallet)
+                    
+                    b = th.Thread(target=self.broadcast_messages, args=(msg_from_wallet,))
+                    b.start()
+                    connection.close()
+
+                elif msg_from_connect1 == "BROADCAST_MESSAGES":
+
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Accepted")
+
+                    #receive a massage
+                    msg_from_connect = self._receive_msg(connection)
+                    
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Here my list of connections { self.list_connections }")
+
+                    #receive a massage
+                    msg_from_connect2 = self._receive_msg(connection)
+                    print(msg_from_connect2)
+                    #msg_from_connect2 = self._receive_msg(connection)[40:-1]
+                    #print(msg_from_connect2.split(","))
+
+                    connection.close()
 
             print("connection is closed")
 
+
+
+
     def _connect(self, port):
+        print("-----------------CONNECT")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             address = "localhost"
             client_socket.connect((address, port))
 
             self.list_connections.append(port)
 
-            # Receive a message
-            print(self._receive_msg(client_socket))
+            #send a message
+            self._send_msg(client_socket,f"CONNECT")
 
-            # Send a message
-            self._send_msg(client_socket,f"thank you for accepting the connection from {self.address, self.port}!")
+            #receive a message
+            msg = self._receive_msg(client_socket)
+            if msg == "LISTEN -> Accepted":
 
-    def broadcast(self):
+                #send a message
+                self._send_msg(client_socket,f"CONNECT -> thank you for accepting the connection from {self.address, self.port}!")
+
+
+
+    def receive_transaction(self):
+        print("-----------------RECEIVE_TRANSACTION")
+        
+
+
+    def broadcast_connexions(self):
+        # quand on se connecte à un noeud, le noeud nou sfournit sa liste de connexion
+        # et on se connecte à tous ces autres neouds
+        print("-----------------BROADCAST_CONNEXIONS")        
         for i in range(len(self.list_connections)):
-            
-            port = int(self.list_connections[i])
-
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 address = "localhost"
+                port = int(self.list_connections[i])
                 client_socket.connect((address, port))
-                
-                # Send a message
-                self._send_msg(client_socket,f"Here my list of connections { self.list_connections }")
 
+                #send a message
+                self._send_msg(client_socket,f"BROADCAST_CONNEXIONS")
+
+                #receive a message
+                msg = self._receive_msg(client_socket)
+                if msg == "LISTEN -> Accepted":
+
+                    #send a message
+                    self._send_msg(client_socket,f"BROADCAST_CONNEXIONS -> thank you for accepting the connection from {self.address, self.port}!")
+
+                    #receive a message
+                    print(self._receive_msg(client_socket))
+
+                    #send a message
+                    self._send_msg(client_socket,f"BROADCAST_CONNEXIONS -> Here my list of connections { self.list_connections }")
+
+
+    def broadcast_messages(self, message):
+        # quand on se connecte à un noeud, le noeud nou sfournit sa liste de connexion
+        # et on se connecte à tous ces autres neouds
+        print("-----------------BROADCAST_MESSAGES")        
+        for i in range(len(self.list_connections)):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                address = "localhost"
+                port = int(self.list_connections[i])
+                client_socket.connect((address, port))
+
+                #send a message
+                self._send_msg(client_socket,f"BROADCAST_MESSAGES")
+
+                #receive a message
+                msg = self._receive_msg(client_socket)
+                if msg == "LISTEN -> Accepted":
+
+                    #send a message
+                    self._send_msg(client_socket, message)
+
+
+
+    # chauqe lapse de temps, on lance le minage
+    # stocke toutes les transactions dans son block et il l'envoie à toutes ses connexions
+    # Chercher sur le minage
     def minage(self):
         pass
+
+
+n = Node()
