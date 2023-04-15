@@ -59,7 +59,7 @@ class Node:
         self._stop_event = th.Event()
 
         # creer une classe block
-        self.blockchain = []
+        self.transactions = []
         
 
     def run_thread(self):
@@ -123,7 +123,6 @@ class Node:
                     connection.close()
 
                 elif msg_from_connect1 == "RECEIVE_TRANSACTION":
-                    print("wallet")
 
                     #send a message
                     self._send_msg(connection, f"LISTEN -> Accepted")
@@ -131,6 +130,7 @@ class Node:
                     #receive a massage
                     msg_from_wallet = self._receive_msg(connection)
                     print(msg_from_wallet)
+                    self.transactions.append(msg_from_connect)
                     
                     b = th.Thread(target=self.broadcast_messages, args=(msg_from_wallet,))
                     b.start()
@@ -145,8 +145,8 @@ class Node:
                     #receive a massage
                     msg_from_connect = self._receive_msg(connection)
                     print(msg_from_connect)
-                    #msg_from_connect2 = self._receive_msg(connection)[40:-1]
-                    #print(msg_from_connect2.split(","))
+                    
+                    self.transactions.append(msg_from_connect)
 
                     connection.close()
 
@@ -205,7 +205,6 @@ class Node:
         # quand on se connecte à un noeud, le noeud nou sfournit sa liste de connexion
         # et on se connecte à tous ces autres neouds
         print("-----------------BROADCAST_MESSAGES")
-        print(message)
         for i in range(len(self.list_connections)):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 address = "localhost"

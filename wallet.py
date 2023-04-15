@@ -36,8 +36,8 @@ class Wallet:
     # envoyer une transaction
     def push_utxo(self):
 
-        Name_dest = input("Put the name of the wallet to sand money")
-        montant = input("Put the amount")
+        Name_dest = input("Put the name of the wallet to sand money : ")
+        montant = input("Put the amount : ")
         self.message = self.name+","+Name_dest+","+montant
 
 
