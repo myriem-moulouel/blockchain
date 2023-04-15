@@ -137,19 +137,14 @@ class Node:
                     connection.close()
 
                 elif msg_from_connect1 == "BROADCAST_MESSAGES":
+                    print("BROADCAST_MESSAGES")
 
                     #send a message
                     self._send_msg(connection, f"LISTEN -> Accepted")
 
                     #receive a massage
                     msg_from_connect = self._receive_msg(connection)
-                    
-                    #send a message
-                    self._send_msg(connection, f"LISTEN -> Here my list of connections { self.list_connections }")
-
-                    #receive a massage
-                    msg_from_connect2 = self._receive_msg(connection)
-                    print(msg_from_connect2)
+                    print(msg_from_connect)
                     #msg_from_connect2 = self._receive_msg(connection)[40:-1]
                     #print(msg_from_connect2.split(","))
 
@@ -177,12 +172,6 @@ class Node:
 
                 #send a message
                 self._send_msg(client_socket,f"CONNECT -> thank you for accepting the connection from {self.address, self.port}!")
-
-
-
-    def receive_transaction(self):
-        print("-----------------RECEIVE_TRANSACTION")
-        
 
 
     def broadcast_connexions(self):
@@ -215,7 +204,8 @@ class Node:
     def broadcast_messages(self, message):
         # quand on se connecte à un noeud, le noeud nou sfournit sa liste de connexion
         # et on se connecte à tous ces autres neouds
-        print("-----------------BROADCAST_MESSAGES")        
+        print("-----------------BROADCAST_MESSAGES")
+        print(message)
         for i in range(len(self.list_connections)):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 address = "localhost"
