@@ -3,6 +3,8 @@ import threading as th
 import pickle
 import sys
 
+from merkel_tree import Merkel_tree, is_in_node
+
 from hashlib import sha256
 
 def hash_object(obj: any) -> str:
@@ -58,8 +60,14 @@ class Node:
         
         self._stop_event = th.Event()
 
+        self.transaction_file = "file"+str(self.port)+".txt"
+
         # creer une classe block
-        self.transactions = "file"+str(self.port)+".txt"
+        f = open(self.transaction_file, 'r')
+        lines = f.readlines()
+        f.close()
+        self.transactions = [line.split(",")[0] for line in lines]
+        print(self.transactions)
         
 
     def run_thread(self):
@@ -122,6 +130,25 @@ class Node:
 
                     connection.close()
 
+                elif msg_from_connect1 == "CHECK_TRANSACTION":
+
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Accepted")
+
+                    #receive a massage
+                    utxo = self._receive_msg(connection)
+                    print(utxo)
+
+                    m_tree = Merkel_tree(self.transactions)
+
+                    response = is_in_node(m_tree, utxo)
+
+                    self._send_msg(connection, response)
+
+                    #b = th.Thread(target=self.broadcast_messages, args=(utxo,))
+                    #b.start()
+                    connection.close()
+
                 elif msg_from_connect1 == "RECEIVE_TRANSACTION":
 
                     #send a message
@@ -130,8 +157,8 @@ class Node:
                     #receive a massage
                     msg_from_wallet = self._receive_msg(connection)
                     print(msg_from_wallet)
-                    f = open(self.transactions, 'a')
-                    f.write("\n"+msg_from_wallet)
+                    f = open(self.transaction_file, 'a')
+                    f.write(msg_from_wallet+"\n")
                     f.close()
 
                     b = th.Thread(target=self.broadcast_messages, args=(msg_from_wallet,))
@@ -148,15 +175,13 @@ class Node:
                     msg_from_connect = self._receive_msg(connection)
                     print(msg_from_connect)
                     
-                    f = open(self.transactions, 'a')
-                    f.write("\n"+msg_from_connect)
+                    f = open(self.transaction_file, 'a')
+                    f.write(msg_from_connect+"\n")
                     f.close()
 
                     connection.close()
 
             print("connection is closed")
-
-
 
 
     def _connect(self, port):
@@ -224,7 +249,6 @@ class Node:
 
                     #send a message
                     self._send_msg(client_socket, message)
-
 
 
     # chauqe lapse de temps, on lance le minage
