@@ -63,11 +63,14 @@ class Node:
         self.transaction_file = "file"+str(self.port)+".txt"
 
         # creer une classe block
-        f = open(self.transaction_file, 'r')
-        lines = f.readlines()
-        f.close()
-        self.transactions = [line.split(",")[0] for line in lines]
-        print(self.transactions)
+        try:
+            with open(self.transaction_file, 'r') as f:
+                lines = f.readlines()
+                f.close()
+                self.transactions = [line.split(",")[0] for line in lines]
+        except IOError:
+            self.transactions = []
+
         
 
     def run_thread(self):
