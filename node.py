@@ -52,17 +52,7 @@ class Node:
         print("On est sur l'adresse et le port suivant", self.address, self.port)
         self._listen_thread = th.Thread(target=self._listen)
 
-        if len(sys.argv)>2:
-            self._connect(int(sys.argv[2]))
-        else:
-            print("no connection")
-        self.run_thread()
-        
-        self._stop_event = th.Event()
-
         self.transaction_file = "file"+str(self.port)+".txt"
-
-        # creer une classe block
         try:
             with open(self.transaction_file, 'r') as f:
                 lines = f.readlines()
@@ -71,10 +61,34 @@ class Node:
         except IOError:
             self.transactions = []
 
+        self.blockchain = []
+
+
+        if len(sys.argv)>2:
+            self._connect(int(sys.argv[2]))
+        else:
+            print("no connection")
+        self.run_thread()
         
+        self._stop_event = th.Event()
+
+        
+
+
 
     def run_thread(self):
         self._listen_thread.start()
+
+    
+    def _read_block(self):
+        try:
+            with open(self.transaction_file, 'r') as f:
+                lines = f.readlines()
+                f.close()
+                self.blockchain = [line for line in lines]
+        except IOError:
+            self.blockchain = []
+        print(self.blockchain)
 
 
     def _send_msg(self, socket, msg):
@@ -161,7 +175,7 @@ class Node:
                     f.write(msg_from_wallet+"\n")
                     f.close()
 
-                    b = th.Thread(target=self.broadcast_messages, args=(msg_from_wallet,))
+                    b = th.Thread(target=self._read_block)
                     b.start()
                     connection.close()
 
