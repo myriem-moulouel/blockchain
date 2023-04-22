@@ -58,35 +58,37 @@ class Merkel_tree(Merkel_node):
     
 
     def __initialise(self, UTXO: list):
-        
-        liste_leafs = [Merkel_leaf( UTXO[i]) for i in range(len(UTXO))] 
-        for leaf in liste_leafs:
-            # store the address of the leaf, to be able to jump into it, and then make the ascent until we reach the root
-            self.dict_hash_to_addr[leaf.hash] = leaf
+        print(UTXO)
+        if len(UTXO) > 0:
+            liste_leafs = [Merkel_leaf( UTXO[i]) for i in range(len(UTXO))] 
+            for leaf in liste_leafs:
+                # store the address of the leaf, to be able to jump into it, and then make the ascent until we reach the root
+                self.dict_hash_to_addr[leaf.hash] = leaf
 
-        liste_nodes = liste_leafs
-        liste_a_traiter = []
-
-        while (liste_a_traiter != None):
+            liste_nodes = liste_leafs
             liste_a_traiter = []
-
-            while (len(liste_nodes) > 1):
-                left = liste_nodes.pop(0) # pop the first elem
-                right = liste_nodes.pop(0) # pop the second elem
-                # Create the node that represent the concatenation of the 2 nodes, and add it to the list 
-                racine = Merkel_node()
-                racine._initialise(left, right)
-                liste_a_traiter.append(racine)
-                
-            if(len(liste_nodes) == 1):
-                last_elem = liste_nodes.pop(0)
-                liste_a_traiter.append(last_elem)
             
-            liste_nodes = liste_a_traiter
 
-            if len(liste_nodes) == 1:
-                self.root_node = liste_nodes[0]
-                liste_a_traiter = None
+            while (liste_a_traiter != None):
+                liste_a_traiter = []
+
+                while (len(liste_nodes) > 1):
+                    left = liste_nodes.pop(0) # pop the first elem
+                    right = liste_nodes.pop(0) # pop the second elem
+                    # Create the node that represent the concatenation of the 2 nodes, and add it to the list 
+                    racine = Merkel_node()
+                    racine._initialise(left, right)
+                    liste_a_traiter.append(racine)
+                    
+                if(len(liste_nodes) == 1):
+                    last_elem = liste_nodes.pop(0)
+                    liste_a_traiter.append(last_elem)
+                
+                liste_nodes = liste_a_traiter
+
+                if len(liste_nodes) == 1:
+                    self.root_node = liste_nodes[0]
+                    liste_a_traiter = None
             
     
     def transaction_in_merkle(self, hash_transaction):
@@ -111,7 +113,10 @@ class Merkel_tree(Merkel_node):
     
 
     def get_hash_block(self):
-        return self.root_node.hash
+        if self.root_node:
+            return self.root_node.hash
+        else:
+            return None
 
     def __str__(self):
         return self.root_node.__str__()
@@ -135,6 +140,7 @@ def is_in_node(tree: Merkel_tree, transaction):
     #print("\nres of computation = ",res)
     #print("\nblock hashcode header = ", tree.get_hash_block())
 
+    
     if res == tree.get_hash_block():
         #print("transaction is in the block")
         return "transaction "+str(transaction)+" is in the block"

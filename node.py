@@ -140,7 +140,6 @@ class Node:
 
                     #receive a massage
                     utxo = self._receive_msg(connection)
-                    print(utxo)
 
                     m_tree = Merkel_tree(self.transactions)
 
@@ -148,8 +147,6 @@ class Node:
 
                     self._send_msg(connection, response)
 
-                    #b = th.Thread(target=self.broadcast_messages, args=(utxo,))
-                    #b.start()
                     connection.close()
 
                 elif msg_from_connect1 == "RECEIVE_TRANSACTION":
