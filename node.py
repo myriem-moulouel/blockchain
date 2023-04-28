@@ -2,10 +2,16 @@ import socket
 import threading as th
 import pickle
 import sys
+import time
+import re
 
 from merkel_tree import Merkel_tree, is_in_node
 
 from hashlib import sha256
+
+from datetime import datetime
+
+import copy
 
 def hash_object(obj: any) -> str:
     """
@@ -43,25 +49,25 @@ class Node:
 
     def __init__(self):
         # Choose a random port to open the server on.
+        self.time_elapsed = 100
+        self.counter = 1
         self.address = "localhost"
         self.port = int(sys.argv[1])
 
         self.list_connections = []
         self.len_connections = 0
+        # semaphore for minage
+        self.v = th.Lock()
 
         print("On est sur l'adresse et le port suivant", self.address, self.port)
         self._listen_thread = th.Thread(target=self._listen)
+        self._minage_thread = th.Thread(target=self.minage)
 
         self.transaction_file = "file"+str(self.port)+".txt"
-        try:
-            with open(self.transaction_file, 'r') as f:
-                lines = f.readlines()
-                f.close()
-                self.transactions = [line.split(",")[0] for line in lines]
-        except IOError:
-            self.transactions = []
+        
 
         self.blockchain = []
+        self.tmp_block = []
 
 
         if len(sys.argv)>2:
@@ -71,24 +77,26 @@ class Node:
         self.run_thread()
         
         self._stop_event = th.Event()
-
-        
-
+        self.start = time.time()
 
 
     def run_thread(self):
         self._listen_thread.start()
+        self._minage_thread.start()
+        
 
-    
-    def _read_block(self):
+    def read_transactions(self):
+        lignes = []
         try:
             with open(self.transaction_file, 'r') as f:
                 lines = f.readlines()
+                for line in lines:
+                    if len(re.findall("^.*\{$", line))!=1 and len(re.findall("^\}$", line))!=1:
+                        lignes.append(line.split(",")[0].split("\t")[1])
                 f.close()
-                self.blockchain = [line for line in lines]
+            return lignes
         except IOError:
-            self.blockchain = []
-        print(self.blockchain)
+            return lignes
 
 
     def _send_msg(self, socket, msg):
@@ -106,7 +114,6 @@ class Node:
             server_socket.bind((self.address, self.port))
             server_socket.listen()
             while not self._stop_event.is_set():
-
                 connection, address = server_socket.accept()
 
                 #receive a massage
@@ -155,6 +162,9 @@ class Node:
                     #receive a massage
                     utxo = self._receive_msg(connection)
 
+                    self.transactions = self.read_transactions()
+                    print(self.transactions)
+
                     m_tree = Merkel_tree(self.transactions)
 
                     response = is_in_node(m_tree, utxo)
@@ -170,13 +180,9 @@ class Node:
 
                     #receive a massage
                     msg_from_wallet = self._receive_msg(connection)
-                    print(msg_from_wallet)
-                    f = open(self.transaction_file, 'a')
-                    f.write(msg_from_wallet+"\n")
-                    f.close()
-
-                    b = th.Thread(target=self._read_block)
-                    b.start()
+                    self.v.acquire()
+                    self.tmp_block.append(msg_from_wallet+"\n")
+                    self.v.release()
                     connection.close()
 
                 elif msg_from_connect1 == "BROADCAST_MESSAGES":
@@ -192,6 +198,18 @@ class Node:
                     f = open(self.transaction_file, 'a')
                     f.write(msg_from_connect+"\n")
                     f.close()
+
+                    connection.close()
+
+                elif msg_from_connect1 == "MINAGE":
+                    print("MINAGE")
+
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Accepted")
+
+                    #receive a massage
+                    msg_from_connect = self._receive_msg(connection)
+                    print(msg_from_connect)
 
                     connection.close()
 
@@ -269,7 +287,43 @@ class Node:
     # stocke toutes les transactions dans son block et il l'envoie à toutes ses connexions
     # Chercher sur le minage
     def minage(self):
-        pass
+        th.Timer(self.time_elapsed, self.minage).start()
+
+        if len(self.tmp_block) > 0:
+            self.v.acquire()
+            tmp = copy.deepcopy(self.tmp_block)
+            self.tmp_block = []
+            self.v.release()
+
+            now = datetime.now().strftime("%d%m%Y%H%M%S%f") #id du block
+            self.blockchain.append((now, tmp))
+
+            f = open(self.transaction_file, 'a')
+            block = now+":{\n"
+            f.write(block)
+            for line in tmp:
+                f.write("\t"+line)
+                block=block+"\t"+line
+            f.write("}\n")
+            block=block+"}\n"
+            f.close()
+            
+            print("-----------------MINAGE")
+            for i in range(len(self.list_connections)):
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                    address = "localhost"
+                    port = int(self.list_connections[i])
+                    client_socket.connect((address, port))
+
+                    #send a message
+                    self._send_msg(client_socket,f"MINAGE")
+
+                    #receive a message
+                    msg = self._receive_msg(client_socket)
+                    if msg == "LISTEN -> Accepted":
+
+                        #send a message
+                        self._send_msg(client_socket, block)
 
 
 n = Node()
