@@ -198,7 +198,7 @@ class Node:
                     msg_from_connect = self._receive_msg(connection)
                     print(msg_from_connect)
 
-                    self.broadcast_messages(msg_from_connect)
+                    #self.broadcast_messages(msg_from_connect)
                     
                     #f = open(self.transaction_file, 'a')
                     #f.write(msg_from_connect+"\n")
