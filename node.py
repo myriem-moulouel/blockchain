@@ -27,7 +27,7 @@ def compute_pow(block: dict, difficulty: int = 5) -> dict:
     """
     n = 0
     while True:
-        block["nonce"] = n
+        block["nonce"] = str(n)
         hx = hash_object(block)
         if hx[0:difficulty] == "0" * difficulty:
             return block
@@ -83,7 +83,7 @@ class Node:
     def run_thread(self):
         self._listen_thread.start()
         self._minage_thread.start()
-        
+
 
     def read_transactions(self):
         lignes = []
@@ -91,7 +91,7 @@ class Node:
             with open(self.transaction_file, 'r') as f:
                 lines = f.readlines()
                 for line in lines:
-                    if len(re.findall("^.*\{$", line))!=1 and len(re.findall("^\}$", line))!=1:
+                    if len(re.findall("^.*\{$", line))!=1 and len(re.findall("^.*\}$", line))!=1 :
                         lignes.append(line.split(",")[0].split("\t")[1])
                 f.close()
             return lignes
@@ -180,6 +180,9 @@ class Node:
 
                     #receive a massage
                     msg_from_wallet = self._receive_msg(connection)
+                    self.broadcast_messages(msg_from_wallet)
+
+
                     self.v.acquire()
                     self.tmp_block.append(msg_from_wallet+"\n")
                     self.v.release()
@@ -194,10 +197,12 @@ class Node:
                     #receive a massage
                     msg_from_connect = self._receive_msg(connection)
                     print(msg_from_connect)
+
+                    self.broadcast_messages(msg_from_connect)
                     
-                    f = open(self.transaction_file, 'a')
-                    f.write(msg_from_connect+"\n")
-                    f.close()
+                    #f = open(self.transaction_file, 'a')
+                    #f.write(msg_from_connect+"\n")
+                    #f.close()
 
                     connection.close()
 
@@ -296,16 +301,21 @@ class Node:
             self.v.release()
 
             now = datetime.now().strftime("%d%m%Y%H%M%S%f") #id du block
-            self.blockchain.append((now, tmp))
+            dict_block = {"id":now, "UTXO": tmp}
+            dict_block = compute_pow(dict_block)
+            self.blockchain.append(dict_block)
 
             f = open(self.transaction_file, 'a')
-            block = now+":{\n"
+            block = now+":{\n\tUTXO:{\n"
             f.write(block)
+
             for line in tmp:
-                f.write("\t"+line)
-                block=block+"\t"+line
-            f.write("}\n")
-            block=block+"}\n"
+                f.write("\t\t"+line)
+                block=block+"\t\t"+line
+
+            f.write("\t}\n\tnonce:{\n\t\t"+str(self.blockchain[-1].get("nonce"))+"\n\t}\n}\n")
+            block=block+"\t}\n\tnonce:{\n\t\t"+str(self.blockchain[-1].get("nonce"))+"\n\t}\n}\n"
+
             f.close()
             
             print("-----------------MINAGE")
