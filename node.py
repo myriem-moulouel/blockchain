@@ -6,6 +6,7 @@ import time
 import re
 
 from merkel_tree import Merkel_tree, is_in_node
+from wallet import UTXO
 
 from hashlib import sha256
 
@@ -20,17 +21,18 @@ def hash_object(obj: any) -> str:
     return sha256(pickle.dumps(obj)).hexdigest()
 
 
-def compute_pow(block: dict, difficulty: int = 5) -> dict:
+def compute_pow(block, difficulty: int = 5) -> dict:
     """
     Takes a block and returns it with the appropriate nonce.
     This nonce is computed with a Proof-of-Work algorithm.
     """
     n = 0
     while True:
-        block["nonce"] = str(n)
+        block.nonce = str(n)
         hx = hash_object(block)
+        block.hash = hx
         if hx[0:difficulty] == "0" * difficulty:
-            return block
+            return 
         n += 1
 
 def represents_int(s):
@@ -42,6 +44,82 @@ def represents_int(s):
         return True
 
 
+class Block:
+    def __init__(self, adress, UTXO, previous) -> None:
+        now = datetime.now()
+        self.id = now.strftime("%d%m%Y%H%M%S%f")
+        self.UTXO = UTXO
+        self.date = now.strftime("%d/%m/%Y %H:%M:%S")
+        self.adress = adress
+        self.previous = previous # hash du block précedant
+        self.recompense = 6
+
+        self.header = None # le hash de la racine de l'arbre de merkel        
+        self.merkel_tree = None
+        self.frais = 0
+
+        self.nonce = None
+        self.hash = None
+        
+    def set_attributs(self):
+        self.merkel_tree = Merkel_tree(self.UTXO)
+        self.header = self.merkel_tree.get_hash_block()
+        for utxo in self.UTXO:
+            self.frais += int(utxo.frais)
+        
+
+    def compute_pow(self, difficulty: int = 5) -> dict:
+        """
+        Takes a block and returns it with the appropriate nonce.
+        This nonce is computed with a Proof-of-Work algorithm.
+        """
+        n = 0
+        while True:
+            self.nonce = str(n)
+            hx = hash_object(self)
+            self.hash = hx
+            if hx[0:difficulty] == "0" * difficulty:
+                return 
+            n += 1
+
+    def __getstate__(self):
+        state = {}
+        state['id'] = self.id
+        state['UTXO'] = pickle.dumps(self.UTXO)
+        state['date'] = self.date
+        state['adress'] = self.adress
+        state['previous'] = self.previous
+        state['recompense'] = self.recompense
+        state['header'] = self.header
+        #state['merkel_tree'] = pickle.dumps(self.merkel_tree)
+        state['frais'] = self.frais
+        state['nonce'] = self.nonce
+        state['hash'] = self.hash
+        return state
+
+    def __setstate__(self, state):
+        self.id = state['id']
+        self.UTXO = pickle.loads(state['UTXO'])
+        self.date = state['date']
+        self.adress = state['adress']
+        self.previous = state['previous']
+        self.recompense = state['recompense']
+        self.header = state['header']
+        #self.merkel_tree = pickle.loads(state['merkel_tree'])
+        self.frais = state['frais']
+        self.nonce = state['nonce']
+        self.hash = state['hash']
+
+    def __str__(self):
+        return str(self.__getstate__())
+
+
+class BlockChain:
+    def __init__(self, blocks) -> None:
+        self.blocks = blocks
+
+
+
 class Node:
     """
     Possède à la fois le code du client et du serveur (fait les deux).
@@ -49,7 +127,7 @@ class Node:
 
     def __init__(self):
         # Choose a random port to open the server on.
-        self.time_elapsed = 100
+        self.time_elapsed = 10
         self.counter = 1
         self.address = "localhost"
         self.port = int(sys.argv[1])
@@ -66,7 +144,7 @@ class Node:
         self.transaction_file = "file"+str(self.port)+".txt"
         
 
-        self.blockchain = []
+        self.blockchain = BlockChain([])
         self.tmp_block = []
 
 
@@ -102,10 +180,17 @@ class Node:
     def _send_msg(self, socket, msg):
         socket.send(bytes(msg,"utf-8"))
 
+    
+    def _send_object(self, socket, msg):
+        socket.send(msg)
+
 
     def _receive_msg(self, socket):
         msg = socket.recv(4096)
         return msg.decode("utf-8")
+    
+    def _receive_object(self, socket):
+        return pickle.loads(socket.recv(4096))
 
 
     def _listen(self):
@@ -179,12 +264,12 @@ class Node:
                     self._send_msg(connection, f"LISTEN -> Accepted")
 
                     #receive a massage
-                    msg_from_wallet = self._receive_msg(connection)
+                    msg_from_wallet = self._receive_object(connection)
                     self.broadcast_messages(msg_from_wallet)
 
 
                     self.v.acquire()
-                    self.tmp_block.append(msg_from_wallet+"\n")
+                    self.tmp_block.append(msg_from_wallet)
                     self.v.release()
                     connection.close()
 
@@ -195,8 +280,11 @@ class Node:
                     self._send_msg(connection, f"LISTEN -> Accepted")
 
                     #receive a massage
-                    msg_from_connect = self._receive_msg(connection)
+                    msg_from_connect = self._receive_object(connection)
                     print(msg_from_connect)
+                    self.v.acquire()
+                    self.tmp_block.append(msg_from_connect)
+                    self.v.release()
 
                     #self.broadcast_messages(msg_from_connect)
                     
@@ -212,8 +300,8 @@ class Node:
                     #send a message
                     self._send_msg(connection, f"LISTEN -> Accepted")
 
-                    #receive a massage
-                    msg_from_connect = self._receive_msg(connection)
+                    #receive a block
+                    msg_from_connect = self._receive_object(connection)
                     print(msg_from_connect)
 
                     connection.close()
@@ -267,7 +355,7 @@ class Node:
                     self._send_msg(client_socket,f"BROADCAST_CONNEXIONS -> Here my list of connections { self.list_connections }")
 
 
-    def broadcast_messages(self, message):
+    def broadcast_messages(self, utxo):
         # quand on se connecte à un noeud, le noeud nou sfournit sa liste de connexion
         # et on se connecte à tous ces autres neouds
         print("-----------------BROADCAST_MESSAGES")
@@ -285,7 +373,7 @@ class Node:
                 if msg == "LISTEN -> Accepted":
 
                     #send a message
-                    self._send_msg(client_socket, message)
+                    self._send_object(client_socket, pickle.dumps(utxo))
 
 
     # chauqe lapse de temps, on lance le minage
@@ -295,27 +383,30 @@ class Node:
         th.Timer(self.time_elapsed, self.minage).start()
 
         if len(self.tmp_block) > 0:
+
+
             self.v.acquire()
+            # list des UTXO recues
             tmp = copy.deepcopy(self.tmp_block)
             self.tmp_block = []
             self.v.release()
 
-            now = datetime.now().strftime("%d%m%Y%H%M%S%f") #id du block
-            dict_block = {"id":now, "UTXO": tmp}
-            dict_block = compute_pow(dict_block)
-            self.blockchain.append(dict_block)
+            try:
+                previous = self.blockchain.blocks[-1].hash
+            except IndexError:
+                previous = None
+            block = Block(self.port, tmp, previous)
+            block.set_attributs()
+            block.compute_pow()
 
-            f = open(self.transaction_file, 'a')
-            block = now+":{\n\tUTXO:{\n"
-            f.write(block)
+            self.blockchain.blocks.append(block)
 
-            for line in tmp:
-                f.write("\t\t"+line)
-                block=block+"\t\t"+line
 
-            f.write("\t}\n\tnonce:{\n\t\t"+str(self.blockchain[-1].get("nonce"))+"\n\t}\n}\n")
-            block=block+"\t}\n\tnonce:{\n\t\t"+str(self.blockchain[-1].get("nonce"))+"\n\t}\n}\n"
+            
 
+
+            f = open(self.transaction_file, 'ab')
+            pickle.dump(block,f)
             f.close()
             
             print("-----------------MINAGE")
@@ -333,7 +424,7 @@ class Node:
                     if msg == "LISTEN -> Accepted":
 
                         #send a message
-                        self._send_msg(client_socket, block)
+                        self._send_object(client_socket, pickle.dumps(block))
 
 
 n = Node()

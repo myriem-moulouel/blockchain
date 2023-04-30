@@ -7,24 +7,38 @@ from hashlib import sha256
 
 from datetime import datetime
 
+import struct
 
 
 
 
-class UTXO():
+
+class UTXO:
     
-    def __init__(self, src, dest, montant, frais):
+    def __init__(self, src, dest, montant):
         now = datetime.now()
         self.id = now.strftime("%d%m%Y%H%M%S%f")
         self.src = src
         self.dest = dest
         self.montant = montant
         self.date = now.strftime("%d/%m/%Y %H:%M:%S")
-        self.frais = frais
+        self.frais = float(montant)*0.01
 
-    def print_id(self):
-        print(self.id)
-        print(self.date)
+    def __getstate__(self):
+        return {'id': self.id, 'src': self.src, 'dest': self.dest, 'montant': self.montant, 'date': self.date, 'frais': self.frais}
+
+    def __setstate__(self, state):
+        self.id = state['id']
+        self.src = state['src']
+        self.dest = state['dest']
+        self.montant = state['montant']
+        self.date = state['date']
+        self.frais = state['frais']
+
+    def __str__(self):
+        return str(self.__getstate__())
+
+
 
 
 class Wallet:
@@ -40,21 +54,22 @@ class Wallet:
 
         self.port_dest = sys.argv[2]
         self.name = sys.argv[3]
-        
-        self.message = ""
 
         todo = input("write : 'send' OR 'check' : ") # choose to send an UTXO or check UTXO existance
 
         if todo == "send":
             self.push_utxo()
-            self.send_UTXO(int(self.port_dest))
+            self.send_UTXO()
 
         elif todo == "check":
-            self.check_UTXO(int(self.port_dest))
+            self.check_UTXO()
 
 
     def _send_msg(self, socket, msg):
         socket.send(bytes(msg,"utf-8"))
+
+    def _send_utxo(self, socket, msg):
+        socket.send(msg)
 
 
     def _receive_msg(self, socket):
@@ -68,14 +83,13 @@ class Wallet:
 
         Name_dest = input("Put the name of the wallet to sand money : ")
         montant = input("Put the amount : ")
-        utxo = UTXO(self.name, Name_dest, montant, 0)
-        self.message = str(utxo.id)+", "+str(utxo.src)+", "+str(utxo.dest)+", "+str(utxo.montant)+", "+str(utxo.date)+", "+str(utxo.frais)
+        self.utxo = UTXO(self.name, Name_dest, montant)
 
-    def send_UTXO(self, port):
+    def send_UTXO(self):
         print("-----------------RECEIVE_TRANSACTION")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             address = "localhost"
-            client_socket.connect((address, port))
+            client_socket.connect((address, int(self.port_dest)))
 
             #send a message
             self._send_msg(client_socket,f"RECEIVE_TRANSACTION")
@@ -85,14 +99,15 @@ class Wallet:
             if msg == "LISTEN -> Accepted":
 
                 #send a message
-                self._send_msg(client_socket, self.message)
+                self._send_utxo(client_socket, pickle.dumps(self.utxo))
+                
 
-    def check_UTXO(self, port):
+    def check_UTXO(self):
         id = input("Put the id of the transacation : ")
         print("-----------------CHECK_TRANSACTION")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             address = "localhost"
-            client_socket.connect((address, port))
+            client_socket.connect((address, int(self.port_dest)))
 
             #send a message
             self._send_msg(client_socket,f"CHECK_TRANSACTION")
@@ -108,5 +123,5 @@ class Wallet:
 
                 print(msg)
 
-
-n = Wallet()
+if __name__ == '__main__':
+    n = Wallet()

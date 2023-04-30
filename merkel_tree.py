@@ -1,8 +1,24 @@
 import hashlib
 
+import pickle
+
+from wallet import UTXO
+
+
+
 def sha256(string):
     # Create a new SHA-256 hash object
     return hashlib.sha256(string.encode()).hexdigest()
+
+
+
+def sha256(obj: any) -> str:
+    """
+    Returns a hexdigest of the value passed.
+    """
+    return hashlib.sha256(pickle.dumps(obj)).hexdigest()
+
+
 
 def sha256_sum(hash1, hash2):
     # Convert the input hashes to integers
@@ -37,7 +53,7 @@ class Merkel_node(Merkel_leaf):
     
     def _initialise(self, left, right):
         left.parent = self
-        right.parent = self   
+        right.parent = self
         self.left = left
         self.right = right
         self.hash = sha256_sum(left.hash, right.hash)
@@ -58,7 +74,7 @@ class Merkel_tree(Merkel_node):
     
 
     def __initialise(self, UTXO: list):
-        print(UTXO)
+        # print(UTXO)
         if len(UTXO) > 0:
             liste_leafs = [Merkel_leaf( UTXO[i]) for i in range(len(UTXO))] 
             for leaf in liste_leafs:
