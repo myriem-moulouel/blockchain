@@ -14,6 +14,8 @@ from datetime import datetime
 
 import copy
 
+DIFFICULTY = 5
+
 def hash_object(obj: any) -> str:
     """
     Returns a hexdigest of the value passed.
@@ -21,7 +23,7 @@ def hash_object(obj: any) -> str:
     return sha256(pickle.dumps(obj)).hexdigest()
 
 
-def compute_pow(block, difficulty: int = 5) -> dict:
+def compute_pow(block) -> dict:
     """
     Takes a block and returns it with the appropriate nonce.
     This nonce is computed with a Proof-of-Work algorithm.
@@ -30,8 +32,8 @@ def compute_pow(block, difficulty: int = 5) -> dict:
     while True:
         block.nonce = str(n)
         hx = hash_object(block)
-        block.hash = hx
-        if hx[0:difficulty] == "0" * difficulty:
+        if hx[0:DIFFICULTY] == "0" * DIFFICULTY:
+            block.hash = hx
             return 
         n += 1
 
@@ -68,7 +70,7 @@ class Block:
             self.frais += int(utxo.frais)
         
 
-    def compute_pow(self, difficulty: int = 5) -> dict:
+    def compute_pow(self):
         """
         Takes a block and returns it with the appropriate nonce.
         This nonce is computed with a Proof-of-Work algorithm.
@@ -77,8 +79,8 @@ class Block:
         while True:
             self.nonce = str(n)
             hx = hash_object(self)
-            self.hash = hx
-            if hx[0:difficulty] == "0" * difficulty:
+            if hx[0:DIFFICULTY] == "0" * DIFFICULTY:
+                self.hash = hx
                 return 
             n += 1
 
@@ -311,13 +313,17 @@ class Node:
                     #receive a block
                     block = self._receive_object(connection)
 
+                    # verify the hash code
                     hash_send = block.hash
-                    print(hash_send)
-                    hash_computed = hash_object(block)
-                    print(hash_computed)
-                    if hash_send == hash_computed:
+                    block.hash = None
                     
-                        print(block)
+                    hash_computed = hash_object(block)
+                    block.hash = hash_send
+                    
+                    if (hash_send == hash_computed) & (hash_send[0:DIFFICULTY] == "0"*DIFFICULTY):
+                    
+                        print("block : Hash verified")
+
 
                     connection.close()
 
