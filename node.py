@@ -142,10 +142,12 @@ class Node:
         self._minage_thread = th.Thread(target=self.minage)
 
         self.transaction_file = "file"+str(self.port)+".txt"
-        
 
-        self.blockchain = BlockChain([])
+        self.blockchain = self.read_blockchain()
+
         self.tmp_block = []
+
+        self.read_transactions()
 
 
         if len(sys.argv)>2:
@@ -157,33 +159,39 @@ class Node:
         self._stop_event = th.Event()
         self.start = time.time()
 
+    def read_blockchain(self):
+        try:
+            list_blocks = []
+            with open(self.transaction_file, 'rb') as f:
+                while True:
+                    try:
+                        list_blocks.append(pickle.load(f))
+                    except EOFError:
+                        break
+                f.close()
+
+                return BlockChain(list_blocks)
+                
+        except FileNotFoundError:
+            return BlockChain([])
 
     def run_thread(self):
         self._listen_thread.start()
         self._minage_thread.start()
 
-
     def read_transactions(self):
-        lignes = []
-        try:
-            with open(self.transaction_file, 'r') as f:
-                lines = f.readlines()
-                for line in lines:
-                    if len(re.findall("^.*\{$", line))!=1 and len(re.findall("^.*\}$", line))!=1 :
-                        lignes.append(line.split(",")[0].split("\t")[1])
-                f.close()
-            return lignes
-        except IOError:
-            return lignes
-
+        transactions = []
+        for block in self.blockchain.blocks:
+            utxo = block.UTXO
+            for i in range(len(utxo)):
+                transactions.append(utxo[i])
+        return transactions
 
     def _send_msg(self, socket, msg):
         socket.send(bytes(msg,"utf-8"))
 
-    
     def _send_object(self, socket, msg):
         socket.send(msg)
-
 
     def _receive_msg(self, socket):
         msg = socket.recv(4096)
@@ -191,7 +199,6 @@ class Node:
     
     def _receive_object(self, socket):
         return pickle.loads(socket.recv(4096))
-
 
     def _listen(self):
         print("-----------------LISTEN")
@@ -248,9 +255,10 @@ class Node:
                     utxo = self._receive_msg(connection)
 
                     self.transactions = self.read_transactions()
-                    print(self.transactions)
+                    list_id = [tr.id for tr in self.transactions]
+                    print(self.transactions, list_id)
 
-                    m_tree = Merkel_tree(self.transactions)
+                    m_tree = Merkel_tree(list_id)
 
                     response = is_in_node(m_tree, utxo)
 
@@ -301,13 +309,19 @@ class Node:
                     self._send_msg(connection, f"LISTEN -> Accepted")
 
                     #receive a block
-                    msg_from_connect = self._receive_object(connection)
-                    print(msg_from_connect)
+                    block = self._receive_object(connection)
+
+                    hash_send = block.hash
+                    print(hash_send)
+                    hash_computed = hash_object(block)
+                    print(hash_computed)
+                    if hash_send == hash_computed:
+                    
+                        print(block)
 
                     connection.close()
 
             print("connection is closed")
-
 
     def _connect(self, port):
         print("-----------------CONNECT")
@@ -326,7 +340,6 @@ class Node:
 
                 #send a message
                 self._send_msg(client_socket,f"CONNECT -> thank you for accepting the connection from {self.address, self.port}!")
-
 
     def broadcast_connexions(self):
         # quand on se connecte à un noeud, le noeud nou sfournit sa liste de connexion
@@ -353,7 +366,6 @@ class Node:
 
                     #send a message
                     self._send_msg(client_socket,f"BROADCAST_CONNEXIONS -> Here my list of connections { self.list_connections }")
-
 
     def broadcast_messages(self, utxo):
         # quand on se connecte à un noeud, le noeud nou sfournit sa liste de connexion
@@ -400,10 +412,6 @@ class Node:
             block.compute_pow()
 
             self.blockchain.blocks.append(block)
-
-
-            
-
 
             f = open(self.transaction_file, 'ab')
             pickle.dump(block,f)
