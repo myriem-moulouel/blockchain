@@ -32,3 +32,9 @@ Put different ports for every node
 
 ![image](https://github.com/myriem-moulouel/blockchain/assets/60098131/8bcb081f-43a3-44d3-8932-1e363267430d)
 
+
+#### Third node
+
+```python node.py 10052 10051```
+
+![image](https://github.com/myriem-moulouel/blockchain/assets/60098131/8d88d2d9-af37-4ca7-9926-ec56d782cb24)
