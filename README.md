@@ -13,6 +13,16 @@ nous utilisons des nœuds de confiance pour que les pairs se découvrent.
 
 ## Libraries to install
 
+library : crypto
+
+```pip3 install crypto```
+
+if it doesn't work
+
+```pip3 uninstall crypto 
+pip3 uninstall pycrypto 
+pip3 install pycryptodome```
+
 ## Start the program
 Put different ports for every node
 
