@@ -19,9 +19,11 @@ library : crypto
 
 if it doesn't work
 
-```pip3 uninstall crypto 
-pip3 uninstall pycrypto 
-pip3 install pycryptodome```
+```pip3 uninstall crypto```
+```pip3 uninstall pycrypto```
+```pip3 install pycryptodome```
+
+
 
 ## Start the program
 Put different ports for every node
