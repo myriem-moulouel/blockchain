@@ -20,7 +20,9 @@ library : crypto
 if it doesn't work
 
 ```pip3 uninstall crypto```
+
 ```pip3 uninstall pycrypto```
+
 ```pip3 install pycryptodome```
 
 
