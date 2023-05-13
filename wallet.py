@@ -79,20 +79,10 @@ class Wallet:
             self.privkey = {"n": privkeys[self.name]["n"], "d":privkeys[self.name]["d"]}
         else:
 
-            keyPair = RSA.generate(bits=1024)
-            self.pubkey = {"n": keyPair.n, "e":keyPair.e}
-            self.privkey = {"n": keyPair.n, "d":keyPair.d}
-
-            f = open(self.pubkeys_file, 'a')
-            f.write(self.name+" "+str(self.pubkey["n"])+" "+str(self.pubkey["e"])+"\n")
-            f.close()
-
-            f = open(self.privkey_file, 'a')
-            f.write(self.name+" "+str(self.privkey["n"])+" "+str(self.privkey["d"])+"\n")
-            f.close()
+            (self.pubkey, self.privkey) = self.create(self.name)
 
 
-        todo = input("write : 'send' OR 'check' : ") # choose to send an UTXO or check UTXO existance
+        todo = input("write : 'send' OR 'check' OR 'credit': ") # choose to send an UTXO or check UTXO existance
 
         if todo == "send":
             self.push_utxo()
@@ -100,6 +90,11 @@ class Wallet:
 
         elif todo == "check":
             self.check_UTXO()
+
+        elif todo == "credit":
+            self.check_credit()
+
+
 
     def read_pubkeys(self):
         try:
@@ -140,12 +135,12 @@ class Wallet:
             return {}
 
 
+
     def _send_msg(self, socket, msg):
         socket.send(bytes(msg,"utf-8"))
 
     def _send_utxo(self, socket, msg):
         socket.send(msg)
-
 
     def _receive_msg(self, socket):
         msg = socket.recv(4096)
@@ -154,6 +149,25 @@ class Wallet:
     def Lock(self):
         self.utxo.signature = pow(self.utxo.hash, int(self.privkey["d"]), int(self.privkey["n"]))
 
+    def create(self, name):
+        pubkeys = self.read_pubkeys()
+        if not(name in pubkeys):
+
+            # If the wallet doesn't exist, create it
+            keyPair = RSA.generate(bits=1024)
+            pubkey = {"n": keyPair.n, "e":keyPair.e}
+            privkey = {"n": keyPair.n, "d":keyPair.d}
+
+            f = open(self.pubkeys_file, 'a')
+            f.write(name+" "+str(pubkey["n"])+" "+str(pubkey["e"])+"\n")
+            f.close()
+
+            f = open("priv_"+name+".txt", 'a')
+            f.write(name+" "+str(privkey["n"])+" "+str(privkey["d"])+"\n")
+            f.close()
+            return (pubkey, privkey)
+
+
 
     # envoyer une transaction
     def push_utxo(self):
@@ -161,6 +175,7 @@ class Wallet:
         Name_dest = input("Put the name of the wallet to sand money : ")
         montant = input("Put the amount : ")
         self.utxo = UTXO(self.name, Name_dest, montant)
+        self.create(Name_dest)
 
     def send_UTXO(self):
         print("-----------------RECEIVE_TRANSACTION")
@@ -178,10 +193,29 @@ class Wallet:
                 self.utxo.hash = hash_utxo(self.utxo)
 
                 self.Lock()
-                                
+
                 #send a message
                 self._send_utxo(client_socket, pickle.dumps(self.utxo))
-                
+
+    def check_credit(self):
+        print("-----------------CHECK_CREDIT")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+            address = "localhost"
+            client_socket.connect((address, int(self.port_dest)))
+
+            #send a message
+            self._send_msg(client_socket,f"CHECK_CREDIT")
+
+            #receive a message
+            msg = self._receive_msg(client_socket)
+            if msg == "LISTEN -> Accepted":
+
+                #send a name of the wallet
+                self._send_msg(client_socket, self.name)
+
+                msg = self._receive_msg(client_socket)
+
+                print("The credit of "+self.name+"= "+msg)
 
     def check_UTXO(self):
         id = input("Put the id of the transacation : ")
@@ -203,6 +237,8 @@ class Wallet:
                 msg = self._receive_msg(client_socket)
 
                 print(msg)
+
+
 
 if __name__ == '__main__':
     n = Wallet()

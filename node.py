@@ -14,7 +14,8 @@ from datetime import datetime
 
 import copy
 
-DIFFICULTY = 5
+DIFFICULTY = 5      # Difficulty to compute the hash of the block
+INIT_CREDIT = 100   # the credit by default of every wallet
 
 def hash_object(obj: any) -> str:
     """
@@ -142,12 +143,12 @@ class Node:
         self.v = th.Lock()
 
         print("On est sur l'adresse et le port suivant", self.address, self.port)
-        self._listen_thread = th.Thread(target=self._listen)
-        self._minage_thread = th.Thread(target=self.minage)
 
         self.transaction_file = "file"+str(self.port)+".txt"
-
         self.blockchain = self.read_blockchain()
+
+        self._listen_thread = th.Thread(target=self._listen)
+        self._minage_thread = th.Thread(target=self.minage)
 
         self.tmp_block = []
 
@@ -235,12 +236,24 @@ class Node:
             hashFromSignature = pow(signature, int(pubkeys[name]["e"]), int(pubkeys[name]["n"]))
 
             if (hash == hashFromSignature) :
-                print('utxo valid')
+                print('utxo signature is valid')
                 return True
 
         else:
-            print('utxo not valid')
+            print('utxo signature is not valid')
             return False
+
+    def compute_credit(self, name):
+        credit = INIT_CREDIT
+        blocks = self.blockchain.blocks
+        for block in blocks:
+            for utxo in block.UTXO:
+                if utxo.src == name:
+                    credit += -float(utxo.montant) - float(utxo.frais)
+                if utxo.dest == name:
+                    credit += float(utxo.montant)
+        
+        return credit
 
     def _listen(self):
         print("-----------------LISTEN")
@@ -303,8 +316,24 @@ class Node:
                     m_tree = Merkel_tree(list_id)
 
                     response = is_in_node(m_tree, utxo)
+                    if response =="1":
+                        self._send_msg(connection, "transaction "+str(utxo)+" is in the block")
+                    if response =="0":
+                        self._send_msg(connection, "transaction "+str(utxo)+" is not in the block")
 
-                    self._send_msg(connection, response)
+                    connection.close()
+
+                elif msg_from_connect1 == "CHECK_CREDIT":
+
+                    #send a message
+                    self._send_msg(connection, f"LISTEN -> Accepted")
+
+                    #receive the name of the wallet
+                    name = self._receive_msg(connection)
+
+                    credit = self.compute_credit(name)
+
+                    self._send_msg(connection, str(credit))
 
                     connection.close()
 
@@ -316,14 +345,23 @@ class Node:
                     #receive a massage
                     msg_from_wallet = self._receive_object(connection)
 
+                    # P2PK Unlock
                     reponse_script = self.Unlock(msg_from_wallet)
 
+                    # If the signature is valid
                     if reponse_script:
-                        self.broadcast_messages(msg_from_wallet)
+                        credit = self.compute_credit(msg_from_wallet.src)
+                        
+                        # if credit sufficient
+                        if (credit - float(msg_from_wallet.montant) - float(msg_from_wallet.frais)) > 0:
+                            print("utxo valid")
+                            self.broadcast_messages(msg_from_wallet)
 
-                        self.v.acquire()
-                        self.tmp_block.append(msg_from_wallet)
-                        self.v.release()
+                            self.v.acquire()
+                            self.tmp_block.append(msg_from_wallet)
+                            self.v.release()
+                        else:
+                            print("utxo not valid")
                     
                     connection.close()
 
@@ -336,14 +374,42 @@ class Node:
                     #receive a massage
                     msg_from_connect = self._receive_object(connection)
 
+                    # P2PK Unlock
                     reponse_script = self.Unlock(msg_from_connect)
 
+                    # If the signature is valid
                     if reponse_script:
-                        print(msg_from_connect)
+                        credit = self.compute_credit(msg_from_connect.src)
+                        
+                        # if credit sufficient
+                        if (credit - float(msg_from_connect.montant) - float(msg_from_connect.frais)) > 0:
+                            print("utxo valid")
+                            print(msg_from_connect)
 
-                        self.v.acquire()
-                        self.tmp_block.append(msg_from_connect)
-                        self.v.release()
+
+                            # check wether the utxo received has already been sent to this node
+                            self.transactions = self.read_transactions()
+                            list_id = [tr.id for tr in self.transactions]
+
+                            for tr in self.tmp_block:
+                                list_id.append(tr.id)
+
+
+                            m_tree = Merkel_tree(list_id)
+
+                            response = is_in_node(m_tree, msg_from_connect.id)
+
+                            print("----------------")
+                            print("check wether the utxo received has already been sent to this node")
+                            print("----------------")
+                            if is_in_node(m_tree, msg_from_connect.id) == "0":
+                                self.broadcast_messages(msg_from_connect)
+
+                                self.v.acquire()
+                                self.tmp_block.append(msg_from_connect)
+                                self.v.release()
+
+
 
                     connection.close()
 
@@ -364,8 +430,27 @@ class Node:
                     block.hash = hash_send
                     
                     if (hash_send == hash_computed) & (hash_send[0:DIFFICULTY] == "0"*DIFFICULTY):
-                    
-                        print("block : Hash verified")
+                        self.transactions = self.read_transactions()
+                        list_id = [tr.id for tr in self.transactions]
+
+                        print("________________________")
+                        print("send block section")
+                        print(self.transactions, list_id)
+                        print("\n")
+
+                        m_tree = Merkel_tree(list_id)
+
+                        block_verified = True
+                        for utxo in block.UTXO:
+                            response = is_in_node(m_tree, utxo.id)
+                            if response=="1":
+                                block_verified = False
+                        if block_verified:
+                            print("block : Hash verified")
+                        else:
+                            print("At least, one transaction already exists")
+                    else:
+                        print("Hash of the block is not valid")
 
 
                     connection.close()
@@ -481,6 +566,7 @@ class Node:
                     if msg == "LISTEN -> Accepted":
 
                         #send a message
+                        print("block sent")
                         self._send_object(client_socket, pickle.dumps(block))
 
 if __name__ == '__main__':

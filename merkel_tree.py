@@ -158,11 +158,9 @@ def is_in_node(tree: Merkel_tree, transaction):
 
     
     if res == tree.get_hash_block():
-        #print("transaction is in the block")
-        return "transaction "+str(transaction)+" is in the block"
+        return "1"
     else:
-        #print("transaction is not in the block")
-        return "transaction "+str(transaction)+" is not in the block"
+        return "0"
 
 
 # ================== MAIN CODE ============
