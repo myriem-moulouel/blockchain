@@ -17,6 +17,12 @@ nous utilisons des nœuds de confiance pour que les pairs se découvrent.
 Put different ports for every node
 
 
+Exemple of architecture:
+
+![image](https://github.com/myriem-moulouel/blockchain/assets/60098131/0b5bcb68-07c8-4a95-ba38-c4a60a1b8320)
+
+
+
 
 #### The first node
 
