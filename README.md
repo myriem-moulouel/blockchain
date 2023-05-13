@@ -15,15 +15,15 @@ nous utilisons des nœuds de confiance pour que les pairs se découvrent.
 
 library : crypto
 
-```pip3 install crypto```
+  ```pip3 install crypto```
 
-if it doesn't work
+if it doesn't work, try :
 
-```pip3 uninstall crypto```
+  ```pip3 uninstall crypto```
 
-```pip3 uninstall pycrypto```
+  ```pip3 uninstall pycrypto```
 
-```pip3 install pycryptodome```
+  ```pip3 install pycryptodome```
 
 
 
