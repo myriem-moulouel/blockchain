@@ -191,7 +191,7 @@ class Wallet:
             if msg == "LISTEN -> Accepted":
 
                 self.Lock()
-
+                print("UTXO desc : \n",self.utxo)
                 #send a message
                 self._send_utxo(client_socket, pickle.dumps(self.utxo))
 
