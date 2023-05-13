@@ -8,3 +8,10 @@ Ce projet nécessite Python >= 3.9.
 
 À l'instar des réseaux décentralisés classiques,
 nous utilisons des nœuds de confiance pour que les pairs se découvrent.
+
+
+
+## Libraries to install
+
+## Start the program
+-> The first node
