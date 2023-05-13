@@ -16,6 +16,7 @@ nous utilisons des nœuds de confiance pour que les pairs se découvrent.
 ## Start the program
 Put different ports for every node
 
+```python node.py 10050```
 -> The first node
 ![image](https://github.com/myriem-moulouel/blockchain/assets/60098131/d79b27c8-6699-4f90-90c1-03bd3d54a804)
 
