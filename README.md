@@ -18,7 +18,7 @@ Put different ports for every node
 
 
 
--> The first node
+#### The first node
 
 ```python node.py 10050```
 
@@ -26,7 +26,7 @@ Put different ports for every node
 
 
 
--> Seconde node
+#### Seconde node
 
 ```python node.py 10051 10050```
 
