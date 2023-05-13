@@ -27,6 +27,7 @@ Put different ports for every node
 
 
 -> Seconde node
+
 ```python node.py 10051 10050```
 
 ![image](https://github.com/myriem-moulouel/blockchain/assets/60098131/8bcb081f-43a3-44d3-8932-1e363267430d)
