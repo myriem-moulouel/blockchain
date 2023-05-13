@@ -23,6 +23,12 @@ def hash_object(obj: any) -> str:
     """
     return sha256(pickle.dumps(obj)).hexdigest()
 
+def hash_utxo(obj: any) -> str:
+    """
+    Returns a hexdigest of the value passed.
+    """
+    return int.from_bytes(sha256(pickle.dumps(obj)).digest(), byteorder="big")
+
 
 def compute_pow(block) -> dict:
     """
@@ -231,13 +237,18 @@ class Node:
         name = utxo.src
         if name in pubkeys:
             signature = utxo.signature
-            hash = utxo.hash
+            utxo.signature = None
+            hash = hash_utxo(utxo.__getstate__())
 
             hashFromSignature = pow(signature, int(pubkeys[name]["e"]), int(pubkeys[name]["n"]))
+
+            utxo.signature = signature
 
             if (hash == hashFromSignature) :
                 print('utxo signature is valid')
                 return True
+            print('utxo signature is not valid')
+            return False
 
         else:
             print('utxo signature is not valid')
@@ -344,6 +355,7 @@ class Node:
 
                     #receive a massage
                     msg_from_wallet = self._receive_object(connection)
+                    print("i'm here")
 
                     # P2PK Unlock
                     reponse_script = self.Unlock(msg_from_wallet)

@@ -30,12 +30,11 @@ class UTXO:
         self.date = now.strftime("%d/%m/%Y %H:%M:%S")
         self.frais = float(montant)*0.01
         self.signature = None
-        self.hash = None
 
         self.id = self.id+str(hash_utxo(self))
 
     def __getstate__(self):
-        return {'id': self.id, 'src': self.src, 'dest': self.dest, 'montant': self.montant, 'date': self.date, 'frais': self.frais, 'signature': self.signature, 'hash': self.hash}
+        return {'id': self.id, 'src': self.src, 'dest': self.dest, 'montant': self.montant, 'date': self.date, 'frais': self.frais, 'signature': self.signature}
 
     def __setstate__(self, state):
         self.id = state['id']
@@ -45,7 +44,6 @@ class UTXO:
         self.date = state['date']
         self.frais = state['frais']
         self.signature = state['signature']
-        self.hash = state['hash']
 
     def __str__(self):
         return str(self.__getstate__())
@@ -147,7 +145,8 @@ class Wallet:
         return msg.decode("utf-8")
 
     def Lock(self):
-        self.utxo.signature = pow(self.utxo.hash, int(self.privkey["d"]), int(self.privkey["n"]))
+        hash = hash_utxo(self.utxo.__getstate__())
+        self.utxo.signature = pow(hash, int(self.privkey["d"]), int(self.privkey["n"]))
 
     def create(self, name):
         pubkeys = self.read_pubkeys()
@@ -189,8 +188,6 @@ class Wallet:
             #receive a message
             msg = self._receive_msg(client_socket)
             if msg == "LISTEN -> Accepted":
-
-                self.utxo.hash = hash_utxo(self.utxo)
 
                 self.Lock()
 
