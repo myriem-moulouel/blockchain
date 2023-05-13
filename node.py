@@ -128,6 +128,8 @@ class Node:
     """
 
     def __init__(self):
+        self.pubkeys_file = "pubkeys.txt"
+
         # Choose a random port to open the server on.
         self.time_elapsed = 10
         self.counter = 1
@@ -176,6 +178,25 @@ class Node:
                 
         except FileNotFoundError:
             return BlockChain([])
+        
+    def read_pubkeys(self):
+        try:
+            wallet_adresses = {}
+            with open(self.pubkeys_file, 'r') as f:
+                for l in f:
+                    composantes = l.split()
+                    name = composantes[0]
+                    n = composantes[1]
+                    e = composantes[2]
+
+                    wallet_adresses[name] = {"n": n, "e": e}
+                    
+                f.close()
+
+                return wallet_adresses
+                
+        except FileNotFoundError:
+            return {}
 
     def run_thread(self):
         self._listen_thread.start()
@@ -201,6 +222,25 @@ class Node:
     
     def _receive_object(self, socket):
         return pickle.loads(socket.recv(4096))
+
+    def Unlock(self, utxo):
+        pubkeys = self.read_pubkeys()
+
+        #check if the utxo is valide
+        name = utxo.src
+        if name in pubkeys:
+            signature = utxo.signature
+            hash = utxo.hash
+
+            hashFromSignature = pow(signature, int(pubkeys[name]["e"]), int(pubkeys[name]["n"]))
+
+            if (hash == hashFromSignature) :
+                print('utxo valid')
+                return True
+
+        else:
+            print('utxo not valid')
+            return False
 
     def _listen(self):
         print("-----------------LISTEN")
@@ -275,12 +315,16 @@ class Node:
 
                     #receive a massage
                     msg_from_wallet = self._receive_object(connection)
-                    self.broadcast_messages(msg_from_wallet)
 
+                    reponse_script = self.Unlock(msg_from_wallet)
 
-                    self.v.acquire()
-                    self.tmp_block.append(msg_from_wallet)
-                    self.v.release()
+                    if reponse_script:
+                        self.broadcast_messages(msg_from_wallet)
+
+                        self.v.acquire()
+                        self.tmp_block.append(msg_from_wallet)
+                        self.v.release()
+                    
                     connection.close()
 
                 elif msg_from_connect1 == "BROADCAST_MESSAGES":
@@ -291,16 +335,15 @@ class Node:
 
                     #receive a massage
                     msg_from_connect = self._receive_object(connection)
-                    print(msg_from_connect)
-                    self.v.acquire()
-                    self.tmp_block.append(msg_from_connect)
-                    self.v.release()
 
-                    #self.broadcast_messages(msg_from_connect)
-                    
-                    #f = open(self.transaction_file, 'a')
-                    #f.write(msg_from_connect+"\n")
-                    #f.close()
+                    reponse_script = self.Unlock(msg_from_connect)
+
+                    if reponse_script:
+                        print(msg_from_connect)
+
+                        self.v.acquire()
+                        self.tmp_block.append(msg_from_connect)
+                        self.v.release()
 
                     connection.close()
 
@@ -440,5 +483,5 @@ class Node:
                         #send a message
                         self._send_object(client_socket, pickle.dumps(block))
 
-
-n = Node()
+if __name__ == '__main__':
+    n = Node()
