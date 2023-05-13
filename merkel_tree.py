@@ -21,6 +21,10 @@ def sha256(obj: any) -> str:
 
 
 def sha256_sum(hash1, hash2):
+    """
+    Inputs : 2 hashes 
+    Output : 1 hash that represent the sum of the two ones
+    """
     # Convert the input hashes to integers
     int1 = int(hash1, 16)
     int2 = int(hash2, 16)
@@ -35,7 +39,11 @@ def sha256_sum(hash1, hash2):
 
 class Merkel_leaf():
     def __init__(self, transaction):
-        #self.length = len(str(s))
+        """
+        The merkle leaf structure 
+        hash : the hash of the transaction
+        transaction : 
+        """
         self.hash = sha256(transaction) # a hashcode that refers to the transaction (sha256)
         self.parent = None
         self.transaction = transaction # id of the transaction
@@ -45,6 +53,10 @@ class Merkel_leaf():
 
 class Merkel_node(Merkel_leaf):
     def __init__(self) -> None:
+        """
+        A merkle node structure 
+
+        """
         self.left = None
         self.right = None
         self.hash = None
@@ -136,11 +148,13 @@ class Merkel_tree(Merkel_node):
     def __str__(self):
         return self.root_node.__str__()
 
-"""
-Simulation of the behaviour of a person that demand if his transaction is included in the block
-"""
 
 def is_in_node(tree: Merkel_tree, transaction):
+    """
+    Input : transaction , Merkel_tree
+    Output : char => 1 if the transaction is in the block
+             char => 0 if the transaction is'nt in the block
+    """
     
     hash_t = sha256(transaction)
 
@@ -150,11 +164,6 @@ def is_in_node(tree: Merkel_tree, transaction):
 
     for i in range(len(hash_list)) :
         res = sha256_sum(res, hash_list[i])
-
-    #print("\nhash of the transaction =", hash_t)
-    #print("\nres of computation = ",res)
-    #print("\nblock hashcode header = ", tree.get_hash_block())
-
     
     if res == tree.get_hash_block():
         return "1"
@@ -163,6 +172,9 @@ def is_in_node(tree: Merkel_tree, transaction):
 
 
 # ================== MAIN CODE ============
+"""
+Simulation of the behaviour of a person that demand if his transaction is included in the block
+"""
 
 #liste_transaction = ["t1", "t2", "t3", "t4", "t5", "t6", "t7","t8"]
 #tree = Merkel_tree(liste_transaction)
