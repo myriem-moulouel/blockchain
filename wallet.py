@@ -149,6 +149,7 @@ class Wallet:
         self.utxo.signature = pow(hash, int(self.privkey["d"]), int(self.privkey["n"]))
 
     def create(self, name):
+        """create private and public keys if they don't exist"""
         pubkeys = self.read_pubkeys()
         if not(name in pubkeys):
 

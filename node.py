@@ -442,11 +442,13 @@ class Node:
                     block.hash = hash_send
                     
                     if (hash_send == hash_computed) & (hash_send[0:DIFFICULTY] == "0"*DIFFICULTY):
+                        print("block : Hash verified")
+                        
                         self.transactions = self.read_transactions()
                         list_id = [tr.id for tr in self.transactions]
 
                         print("________________________")
-                        print("send block section")
+                        print("verify transaction in the block")
                         print(self.transactions, list_id)
                         print("\n")
 
@@ -458,7 +460,7 @@ class Node:
                             if response=="1":
                                 block_verified = False
                         if block_verified:
-                            print("block : Hash verified")
+                            print("block : verified")
                         else:
                             print("At least, one transaction already exists")
                     else:

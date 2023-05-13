@@ -38,7 +38,7 @@ class Merkel_leaf():
         #self.length = len(str(s))
         self.hash = sha256(transaction) # a hashcode that refers to the transaction (sha256)
         self.parent = None
-        self.transaction = transaction # a json file that contains all the informations about the transaction
+        self.transaction = transaction # id of the transaction
      
     def __str__(self):
         return "("+str(self.transaction)+")"
@@ -64,7 +64,6 @@ class Merkel_node(Merkel_leaf):
         result = "|  "+self.left.__str__() + "[" + str(f"node") + "]" + self.right.__str__()+"  |"
 
         return result
-
 
 class Merkel_tree(Merkel_node):
     def __init__(self, UTXO) -> None:
@@ -139,8 +138,8 @@ class Merkel_tree(Merkel_node):
 
 """
 Simulation of the behaviour of a person that demand if his transaction is included in the block
-
 """
+
 def is_in_node(tree: Merkel_tree, transaction):
     
     hash_t = sha256(transaction)
