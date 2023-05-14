@@ -9,7 +9,14 @@ Ce projet nécessite Python >= 3.9.
 À l'instar des réseaux décentralisés classiques,
 nous utilisons des nœuds de confiance pour que les pairs se découvrent.
 
-
+## Execution
+- Start a node with : python node.py 10050 (port number)
+- Start another node with connecting it to the previus one : python node.py 10051 10050
+- Start a wallet with a port number and connect it to a node : python wallet.py 10001 10050 myriem
+- Once you are connected to the wallet you will choose one of the three options : send, check, credit
+  - send : send an amount of money from your wallet to another wallet (if the dest wallet doesn't exist, we will create it directly in order to simplify the simulation)
+  - check : check if the transaction that you create before is included in the blockchain
+  - credit : return the amount of credit available in your wallet (by default all wallets have 100 => you can change it with modifying the init_credit in utils.py file)
 
 ## Libraries to install
 
